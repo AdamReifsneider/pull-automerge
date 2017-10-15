@@ -1,34 +1,16 @@
 (ns pull-automerge.core
-  (:require 
+  (:require
+    [clojure.pprint :refer [pprint]]
     [org.httpkit.client :as http] 
     [cheshire.core :refer :all]
   )
   (:gen-class))
-
-(defn with-title [pulls title] 
-  (filter (fn [pull] (= (pull :title) title)) pulls))
-
-(defn pull-by-title [body title]
-  (first (with-title (parse-string body true) title)))
 
 (defn print-json-object [json-object]
   (println (generate-string json-object {:pretty true})))
 
 (defn print-json-string [json-string]
   (print-json-object (parse-string json-string true)))
-
-(defn extract-root-keys [body keys]
-  (map (fn [item] (select-keys item keys)) ((parse-string body true) :items)))
-
-(defn print-pr-fields [body keys]
-  (println "FOUND:\n" (clojure.string/join "\n" (extract-root-keys body keys))))
-
-(defn query [url options]
-  (let [{:keys [status body headers message]} @(http/get url options)]
-    ; (println status)
-    ; (print-json-string body)
-    ; (print-pr-fields :id :title :pull_request)
-  ))
 
 (defn get-pr-search-url []
   (str "https://api.github.com/search/issues?q="
@@ -41,23 +23,6 @@
       ])
     "&sort=created&order=asc"))
 
-(defn query-async [url options]
-  (http/get url options)
-)
-
-(defn query-prs [options]
-  (let 
-    [{:keys [status body headers message]} @(query-async (get-pr-search-url) options)]
-    (def pulls (extract-root-keys body [:id :title :pull_request]))
-    (loop [pull (first pulls)] [pulls]
-      (let 
-        [{:keys [status body headers message]} @(http/get
-          ((pull :pull_request) :url)
-          options
-        )]
-        (print-json-string body)
-      ))))
-
 (defn generate-options [token]
   {
     :headers {
@@ -69,4 +34,8 @@
 (defn -main
   [& args]
   (def options (generate-options (first args)))
-  (query-prs options))
+  (def auto-pulls-result (http/get (get-pr-search-url) options))
+  (def auto-pulls ((parse-string(@auto-pulls-result :body) true) :items))
+  (def auto-pull-urls (map (fn [pull] ((pull :pull_request) :url)) auto-pulls))
+  (pprint auto-pull-urls)
+)
