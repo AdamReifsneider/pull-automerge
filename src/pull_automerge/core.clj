@@ -27,7 +27,7 @@
       "user:AdamReifsneider"
       "type:pr"
       "state:open"
-      "label:automerge"
+      "label:Automerge"
       ])
     "&sort=created&order=asc"))
 
@@ -55,7 +55,7 @@
   [& args]
   (def options (generate-options (first args)))
   (def auto-pulls-result @(http/get (get-pull-search-url) options))
-  (println "Retrieve automerege pulls: " (auto-pulls-result :status))
+  (println "Retrieve automerge pulls: " (auto-pulls-result :status))
   (def auto-pulls ((parse-string(auto-pulls-result :body) true) :items))
   (println "Automerge pull count: " (count auto-pulls))
   (if (> (count auto-pulls) 0)
