@@ -1,4 +1,4 @@
-(ns blog-example.core
+(ns pull-automerge.core
   (:require 
     [org.httpkit.client :as http] 
     [cheshire.core :refer :all]

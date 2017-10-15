@@ -1,4 +1,4 @@
-(defproject blog-example "0.1.0-SNAPSHOT"
+(defproject pull-automerge "0.1.0-SNAPSHOT"
   :description "FIXME: write description"
   :url "http://example.com/FIXME"
   :license {:name "Eclipse Public License"
@@ -8,6 +8,6 @@
     [http-kit "2.2.0"]
     [cheshire "5.8.0"]
   ]
-  :main ^:skip-aot blog-example.core
+  :main ^:skip-aot pull-automerge.core
   :target-path "target/%s"
   :profiles {:uberjar {:aot :all}})

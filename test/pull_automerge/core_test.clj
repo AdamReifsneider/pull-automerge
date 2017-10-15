@@ -1,6 +1,6 @@
-(ns blog-example.core-test
+(ns pull-automerge.core-test
   (:require [clojure.test :refer :all]
-            [blog-example.core :refer :all]))
+            [pull-automerge.core :refer :all]))
 
 (deftest a-test
   (testing "FIXME, I fail."
