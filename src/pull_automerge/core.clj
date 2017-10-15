@@ -54,12 +54,14 @@
         (print-json-string body)
       ))))
 
-(defn -main
-  [& args]
-  (def options {
+(defn generate-options [token]
+  {
     :headers {
-      "Authorization" (str "token " (first args))
+      "Authorization" (str "token " token)
       "Accept" "application/vnd.github.v3+json"
     }
   })
-  (query-prs options))
+
+(defn -main
+  [& args]
+  (query-prs (generate-options (first args))))
