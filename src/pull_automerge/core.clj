@@ -30,19 +30,21 @@
     ; (print-pr-fields :id :title :pull_request)
   ))
 
+(defn get-pr-search-url []
+  (str "https://api.github.com/search/issues?q="
+    (clojure.string/join "+" [
+      "repo:api-testing"
+      "user:AdamReifsneider"
+      "type:pr"
+      "state:open"
+      "label:automerge"
+      ])
+    "&sort=created&order=asc"))
+
 (defn query-prs [options]
   (let 
     [{:keys [status body headers message]} @(http/get
-    (str "https://api.github.com/search/issues?q="
-      (clojure.string/join "+" [
-        "repo:api-testing"
-        "user:AdamReifsneider"
-        "type:pr"
-        "state:open"
-        "label:automerge"
-        ])
-      "&sort=created&order=asc"
-      )
+    (get-pr-search-url)
     options)]
     (def pulls (extract-root-keys body [:id :title :pull_request]))
     (loop [pull (first pulls)] [pulls]
