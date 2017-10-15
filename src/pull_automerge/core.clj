@@ -35,27 +35,30 @@
   (str "https://api.github.com/repos/AdamReifsneider/api-testing/pulls/" pr-number "/merge"))
 
 (defn merge-pull-number [pull-number options]
-  (println "MERGING PR#" pull-number)
+  (println "Merging PR#" pull-number)
     (def merge-result @(http/put (generate-merge-url pull-number) options))
-    (println "MERGE STATUS: " (merge-result :status))
+    (println "Merge status: " (merge-result :status))
     (if (merge-result :error)
       (println "MERGE ERROR: " (merge-result :error))))
+
+(defn try-merge [pull-url options]
+  (def pull-result @(http/get pull-url options))
+    (println "Retrieve pull status: " (pull-result :status))
+    (def pull (parse-string (pull-result :body) true))
+    (if (and (= (pull :mergeable) true) (= (pull :mergeable_state) "clean"))
+      (merge-pull-number (pull :number) options)
+      (println (str "Cannot merge oldest PR#" (pull :number) ":")
+        "\n  mergeable =" (pull :mergeable)
+        "\n  mergeable_state =" (pull :mergeable_state))))
 
 (defn -main
   [& args]
   (def options (generate-options (first args)))
   (def auto-pulls-result @(http/get (get-pull-search-url) options))
-  (println "AUTO PULLS: " (auto-pulls-result :status))
+  (println "Retrieve automerege pulls: " (auto-pulls-result :status))
   (def auto-pulls ((parse-string(auto-pulls-result :body) true) :items))
-  ; (if (> 0 (count auto-pulls)))
-  (println "AUTO PULL COUNT: " (count auto-pulls))
-  (def pull1-result @(http/get (((first auto-pulls) :pull_request) :url) options))
-  (println "PULL 1: " (auto-pulls-result :status))
-  (def pull1 (parse-string (pull1-result :body) true))
-  (println "MERGEABLE: " (pull1 :mergeable))
-  (println "MERGEABLE_STATE: " (pull1 :mergeable_state))
-  (if (and (= (pull1 :mergeable) true) (= (pull1 :mergeable_state) "clean"))
-    (merge-pull-number (pull1 :number) options)
-    (println (str "CANNOT MERGE OLDEST AUTOMERGE PR#" (pull1 :number) ":")
-      "\n  mergeable =" (pull1 :mergeable)
-      "\n  mergeable_state =" (pull1 :mergeable_state))))
+  (println "Automerge pull count: " (count auto-pulls))
+  (if (> (count auto-pulls) 0)
+    (try-merge (((first auto-pulls) :pull_request) :url) options)
+    (println "No automergeable pull requests")))
+  
