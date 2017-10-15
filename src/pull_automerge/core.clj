@@ -41,11 +41,13 @@
       ])
     "&sort=created&order=asc"))
 
+(defn query-async [url options]
+  (http/get url options)
+)
+
 (defn query-prs [options]
   (let 
-    [{:keys [status body headers message]} @(http/get
-    (get-pr-search-url)
-    options)]
+    [{:keys [status body headers message]} @(query-async (get-pr-search-url) options)]
     (def pulls (extract-root-keys body [:id :title :pull_request]))
     (loop [pull (first pulls)] [pulls]
       (let 
