@@ -66,4 +66,5 @@
 
 (defn -main
   [& args]
-  (query-prs (generate-options (first args))))
+  (def options (generate-options (first args)))
+  (query-prs options))
