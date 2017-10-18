@@ -20,19 +20,18 @@
     }
   })
 
-(defn get-pull-search-url []
-  (str "https://api.github.com/search/issues?q="
-    (clojure.string/join "+" [
-      "repo:axiom-platform"
-      "org:ai-labs-team"
-      "type:pr"
-      "state:open"
-      "label:Automerge"
-      ])
-    "&sort=created&order=asc"))
+(defn get-pull-search-url [org repo label]
+  (str "https://api.github.com/repos/" org "/" repo "/issues"
+      "?labels=" label
+      "&state=open"
+      "&page=0&per_page=1"
+      "&sort=created&direction=asc"))
 
 (defn generate-merge-url [pr-number]
-  (str "https://api.github.com/repos/AdamReifsneider/api-testing/pulls/" pr-number "/merge"))
+  (str 
+  "https://api.github.com/repos/AdamReifsneider/api-testing/pulls/" 
+    pr-number 
+    "/merge"))
 
 (defn merge-pull-number [pull-number options]
   (println "Merging PR#" pull-number)
@@ -53,12 +52,20 @@
 
 (defn -main
   [& args]
-  (def options (generate-options (first args)))
-  (def auto-pulls-result @(http/get (get-pull-search-url) options))
-  (println "Retrieve automerge pulls: " (auto-pulls-result :status))
-  (def auto-pulls ((parse-string(auto-pulls-result :body) true) :items))
-  (println "Automerge pull count: " (count auto-pulls))
-  (if (> (count auto-pulls) 0)
-    (try-merge (((first auto-pulls) :pull_request) :url) options)
-    (println "No automergeable pull requests")))
-  
+  (def token (first args))
+  (def org "ai-labs-team")
+  (def repo "axiom-platform")
+  (def label "DevOps")
+  (def options (generate-options token))
+  ; TODO crawl to /issues from root url
+  (def pulls-result @(http/get 
+    (get-pull-search-url org repo label)
+    options))
+  (println "Retrieve automerge pulls status: " (pulls-result :status))
+  (def pulls(parse-string (pulls-result :body) true))
+  (if (> (count pulls) 0)
+    (println "Found PR: " ((first pulls) :title))
+    ; (try-merge (((first auto-pulls) :pull_request) :url) options)
+    (println (str "No automergeable pull requests in '" 
+      org "/" repo "' with label '" label "'")))
+)
