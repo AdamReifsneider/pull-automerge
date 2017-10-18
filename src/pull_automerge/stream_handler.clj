@@ -1,10 +1,11 @@
 (ns pull-automerge.core
+  (:gen-class
+   :implements [com.amazonaws.services.lambda.runtime.RequestStreamHandler]))
   (:require
     [clojure.pprint :refer [pprint]]
     [org.httpkit.client :as http] 
     [cheshire.core :refer :all]
   )
-  (:gen-class))
 
 (defn print-json-object [json-object]
   (println (generate-string json-object {:pretty true})))
@@ -55,6 +56,7 @@
   [& args]
   (def options (generate-options (first args)))
   (def auto-pulls-result @(http/get (get-pull-search-url) options))
+  (pprint (auto-pulls-result :headers))
   (println "Retrieve automerge pulls: " (auto-pulls-result :status))
   (def auto-pulls ((parse-string(auto-pulls-result :body) true) :items))
   (println "Automerge pull count: " (count auto-pulls))
