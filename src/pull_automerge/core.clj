@@ -1,11 +1,12 @@
 (ns pull-automerge.core
+  (:gen-class
+   :implements [com.amazonaws.services.lambda.runtime.RequestStreamHandler])
   (:require
     [clojure.pprint :refer [pprint]]
     [org.httpkit.client :as http] 
     [cheshire.core :refer :all]
-  )
-  (:gen-class))
-
+  ))
+  
 (defn print-json-object [json-object]
   (println (generate-string json-object {:pretty true})))
 
