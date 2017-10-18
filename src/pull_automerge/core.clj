@@ -23,8 +23,8 @@
 (defn get-pull-search-url []
   (str "https://api.github.com/search/issues?q="
     (clojure.string/join "+" [
-      "repo:api-testing"
-      "user:AdamReifsneider"
+      "repo:axiom-platform"
+      "org:ai-labs-team"
       "type:pr"
       "state:open"
       "label:Automerge"
