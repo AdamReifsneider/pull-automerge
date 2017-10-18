@@ -64,9 +64,11 @@
     options))
   (println "Retrieve automerge pulls status: " (pulls-result :status))
   (def pulls(parse-string (pulls-result :body) true))
-  (if (> (count pulls) 0)
-    (println "Found PR: " ((first pulls) :title))
-    ; (try-merge (((first auto-pulls) :pull_request) :url) options)
-    (println (str "No automergeable pull requests in '" 
-      org "/" repo "' with label '" label "'")))
+  (if (= 0 (count pulls))
+    (do    
+      (println (str "No automergeable pull requests in '" 
+        org "/" repo "' with label '" label "'"))
+      (println "Exiting...")
+      (System/exit 0)))
+  (println "Found PR: " ((first pulls) :title))
 )
