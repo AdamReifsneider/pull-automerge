@@ -91,26 +91,30 @@
 
   (if (nil? (pull :pull_request))
     (do (remove-label-and-exit options org repo pull-number label
-      "Issue has no key 'pull_request' present, so it must not be a pull request.")))
+      "Issue has no key 'pull_request' present, so it must not be a pull request")))
 
-  (def pull (get-pull-request options org repo 1242))
+  (def pull (get-pull-request options org repo pull-number))
   (def state (pull :mergeable_state))
-  ; (print-json-object pull)
+  (def mergeable (pull :mergeable))
 
-  (if (= "dirty" state)
+  (if (or (= "dirty" state) (= "blocked" state))
     (do (remove-label-and-exit options org repo pull-number label
-      "Issue mergeable_state is dirty.")))
-  ; exit
-  ; (def statuses-result @(http/get (pull :statuses_url) options))
-  ; (println (statuses-result :status))
-  ; (print-json-string (statuses-result :body))
+      (str "Pull request's mergeable_state is '" state "'"))))
+
+  (println "staate:" state "mergeable_state:" mergeable)
+
+  (if (not mergeable)
+    (do (do (remove-label-and-exit options org repo pull-number label
+    (str "Pull request is not mergeable ")))))
+
+  (println "No action taken")
 )
 
-;;mergeable_state dirty means merge conflict?
-;;mergeable_state blocked means requests changes?
+;;X mergeable_state dirty means merge conflict?
+;;X mergeable_state blocked means requests changes?
 ;;mergeable_state behind means out of date
 ;;mergeable_state clean means it can be merged?
-;;mergeable means the github can do an auto merge
+;;X mergeable means the github can do an auto merge
 
 ;;to update a PR: https://developer.github.com/v3/pulls/#update-a-pull-request
 
