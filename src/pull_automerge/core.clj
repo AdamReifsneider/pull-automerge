@@ -55,10 +55,18 @@
 ;     (if (merge-result :error)
 ;       (println "MERGE ERROR: " (merge-result :error))))
 
-(defn update-pull-branch-and-exit [options org repo base-branch target-branch]
-  (println (str "Merging '" base-branch "' into '" target-branch "'"))
+(defn update-pull-branch-and-exit 
+[options org repo pull-number label source-branch target-branch]
+  (println (str "PR# " pull-number " is out of date."
+    " Merging '" source-branch "' into '" target-branch "'"))
+  (def body (generate-string { :head source-branch :base target-branch }))
+  (def all-options (merge options {:body body}))
   (def result @(http/post
-    (str "https://api.github.com/repos/" org "/" repo "/merges" ) options))
+    (str "https://api.github.com/repos/" org "/" repo "/merges" ) all-options))
+  (println "Merge result:" (result :status))
+  (if (result :error)
+    (remove-label-and-exit options org repo pull-number label 
+      (str "MERGE ERROR: " (result :error))))
   (exit))
 
 ; (defn try-merge [pull-url options]
@@ -96,7 +104,6 @@
   (def pull-number (pull :number))
   (println "Found Issue with Title/Number: " (pull :title) "/" pull-number)
 
-
   (if (nil? (pull :pull_request))
     (do (remove-label-and-exit options org repo pull-number label
       "Issue has no key 'pull_request' present, so it must not be a pull request")))
@@ -113,7 +120,12 @@
 
   (if (not mergeable)
     (do (do (remove-label-and-exit options org repo pull-number label
-    (str "Pull request is not mergeable ")))))
+    (str "Pull request is not mergeable " pull-number)))))
+
+  (def branch ((pull :head) :ref))
+  (def base-branch ((pull :base) :ref))
+  (if (= "behind" state)
+    (update-pull-branch-and-exit options org repo pull-number label base-branch branch))
 
   (println "No action taken")
 )
