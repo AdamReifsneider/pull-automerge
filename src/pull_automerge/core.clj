@@ -32,13 +32,15 @@
   (str 
   "https://api.github.com/repos/" org "/" repo "/issues/" issue-number "/labels/" label))
 
+(defn exit [] (System/exit 0))
+
 (defn remove-label-and-exit [options org repo issue-number label reason]
   (println reason)
   (println (str "Removing label '" label "'"))
   (def delete-url (generate-delete-label-url org repo issue-number label))
   (def delete-result @(http/delete delete-url options))
   (println "Delete label result:" (delete-result :status))
-  (System/exit 0))
+  (exit))
 
 (defn get-pull-request [options org repo pull-number]
   (def result @(http/get 
@@ -52,6 +54,12 @@
 ;     (println "Merge status: " (merge-result :status))
 ;     (if (merge-result :error)
 ;       (println "MERGE ERROR: " (merge-result :error))))
+
+(defn update-pull-branch-and-exit [options org repo base-branch target-branch]
+  (println (str "Merging '" base-branch "' into '" target-branch "'"))
+  (def result @(http/post
+    (str "https://api.github.com/repos/" org "/" repo "/merges" ) options))
+  (exit))
 
 ; (defn try-merge [pull-url options]
 ;   (def pull-result @(http/get pull-url options))
@@ -82,7 +90,7 @@
       (println (str "No automergeable pull requests in '" 
         org "/" repo "' with label '" label "'"))
       (println "Exiting...")
-      (System/exit 0)))
+      (exit)))
 
   (def pull (first pulls))
   (def pull-number (pull :number))
@@ -101,7 +109,7 @@
     (do (remove-label-and-exit options org repo pull-number label
       (str "Pull request's mergeable_state is '" state "'"))))
 
-  (println "staate:" state "mergeable_state:" mergeable)
+  (println "state:" state "mergeable_state:" mergeable)
 
   (if (not mergeable)
     (do (do (remove-label-and-exit options org repo pull-number label
