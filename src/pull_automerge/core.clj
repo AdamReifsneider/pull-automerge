@@ -69,15 +69,21 @@
       (str "MERGE ERROR: " (result :error))))
   (exit))
 
-; (defn try-merge [pull-url options]
-;   (def pull-result @(http/get pull-url options))
-;     (println "Retrieve pull status: " (pull-result :status))
-;     (def pull (parse-string (pull-result :body) true))
-;     (if (and (= (pull :mergeable) true) (= (pull :mergeable_state) "clean"))
-;       (merge-pull-number (pull :number) options)
-;       (println (str "Cannot merge oldest PR#" (pull :number) ":")
-;         "\n  mergeable =" (pull :mergeable)
-;         "\n  mergeable_state =" (pull :mergeable_state))))
+(defn squash-merge-pull-and-exit [options org repo pull-number pull-title label]
+  (println "Attemption to squash merge PR#" pull-number)
+  (def all-options (merge options 
+    {
+      :commit_title (pull-title)
+      :merge_method "squash"
+    }))
+  (def result @(http/put
+    (str "https://api.github.com/repos/" org "/" repo "/pulls/" pull-number "/merge")
+      all-options))
+  (println "Merge result:" (result :status))
+  (if (result :error)
+    (remove-label-and-exit options org repo pull-number label 
+      (str "MERGE ERROR: " (result :error))))
+  (exit))
 
 (defn -main
   [& args]
@@ -112,20 +118,22 @@
   (def state (pull :mergeable_state))
   (def mergeable (pull :mergeable))
 
-  (if (or (= "dirty" state) (= "blocked" state))
-    (do (remove-label-and-exit options org repo pull-number label
-      (str "Pull request's mergeable_state is '" state "'"))))
+  ; (if (or (= "dirty" state) (= "blocked" state))
+  ;   (do (remove-label-and-exit options org repo pull-number label
+  ;     (str "Pull request's 'mergeable_state is' '" state "'"))))
 
-  (println "state:" state "mergeable_state:" mergeable)
+  (println "mergeable_state:" state "mergeable:" mergeable)
 
   (if (not mergeable)
     (do (do (remove-label-and-exit options org repo pull-number label
-    (str "Pull request is not mergeable " pull-number)))))
+    (str "Pull request's 'mergeable' is 'false'" pull-number)))))
 
   (def branch ((pull :head) :ref))
   (def base-branch ((pull :base) :ref))
   (if (= "behind" state)
     (update-pull-branch-and-exit options org repo pull-number label base-branch branch))
+
+  ; (squash-merge-pull-and-exit options org repo pull-number (pull :title) label)
 
   (println "No action taken")
 )
