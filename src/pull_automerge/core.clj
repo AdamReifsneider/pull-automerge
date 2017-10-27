@@ -48,13 +48,6 @@
   (println (str "Get pull request " pull-number " status: " (result :status)))
   (parse-string (result :body) true))
 
-; (defn merge-pull-number [pull-number options]
-;   (println "Merging PR#" pull-number)
-;     (def merge-result @(http/put (generate-merge-url pull-number) options))
-;     (println "Merge status: " (merge-result :status))
-;     (if (merge-result :error)
-;       (println "MERGE ERROR: " (merge-result :error))))
-
 (defn update-pull-branch-and-exit 
 [options org repo pull-number label source-branch target-branch]
   (println (str "PR# " pull-number " is out of date."
@@ -85,6 +78,14 @@
       (str "MERGE ERROR: " (result :error))))
   (exit))
 
+(defn statuses-for-ref [options org repo ref]
+  (println "Getting statuses for" ref)
+  (def result @(http/get 
+    (str "https://api.github.com/repos/" org "/" repo "/commits/" ref "/statuses")
+    options))
+  (println "Get statuses result:" (result :status))
+  result)
+
 (defn -main
   [& args]
   (def token (first args))
@@ -93,75 +94,91 @@
   (def label "Automerge")
   (def options (generate-options token))
   ; TODO crawl to /issues from root url
+
+  ; ***************************************************************************
+  ; GET OPEN LABELED ISSUES
+  ; ***************************************************************************
   (def pulls-result @(http/get 
     (get-pull-search-url org repo label)
     options))
-  (println "Retrieve automerge pulls status: " (pulls-result :status))
-  (def pulls(parse-string (pulls-result :body) true))
+  (println "Retrieve automerge issues status: " (pulls-result :status))
+  (def pulls (parse-string (pulls-result :body) true))
 
+  ; ***************************************************************************
+  ; EXIT IF NO LABELED ISSUES FOUND
+  ; ***************************************************************************
   (if (= 0 (count pulls))
-    (do    
-      (println (str "No automergeable pull requests in '" 
+    (do
+      (println (str "No automergeable issues in '" 
         org "/" repo "' with label '" label "'"))
       (println "Exiting...")
       (exit)))
 
+  ; ***************************************************************************
+  ; SET OLDEST ISSUE
+  ; ***************************************************************************
   (def pull (first pulls))
   (def pull-number (pull :number))
   (println "Found Issue with Title/Number: " (pull :title) "/" pull-number)
 
+  ; ***************************************************************************
+  ; REMOVE LABEL FROM NON-PULL-REQUEST
+  ; ***************************************************************************
   (if (nil? (pull :pull_request))
-    (do (remove-label-and-exit options org repo pull-number label
-      "Issue has no key 'pull_request' present, so it must not be a pull request")))
+    (remove-label-and-exit options org repo pull-number label
+      "Issue has no key 'pull_request' present, so it must not be a pull request"))
 
+  ; ***************************************************************************
+  ; RETRIEVE ISSUE AS PULL REQUEST
+  ; ***************************************************************************
   (def pull (get-pull-request options org repo pull-number))
+  (def head-sha ((pull :head) :sha))
   (def state (pull :mergeable_state))
-  (def mergeable (pull :mergeable))
+  (println "mergeable_state is" state)
+  (print-json-object pull)
 
-  ; (if (or (= "dirty" state) (= "blocked" state))
-  ;   (do (remove-label-and-exit options org repo pull-number label
-  ;     (str "Pull request's 'mergeable_state is' '" state "'"))))
+  ; ***************************************************************************
+  ; MERGE PULL REQUEST
+  ; ***************************************************************************
+  (if (= "clean" state)
+    (squash-merge-pull-and-exit options org repo pull-number (pull :title) label))
 
-  (println "mergeable_state:" state "mergeable:" mergeable)
-
-  (if (not mergeable)
-    (do (do (remove-label-and-exit options org repo pull-number label
-    (str "Pull request's 'mergeable' is 'false'" pull-number)))))
-
-  (def branch ((pull :head) :ref))
+  ; ***************************************************************************
+  ; REMOVE LABEL FROM CONFLICTED BRANCH
+  ; ***************************************************************************
+  (if (= "dirty" state)
+    (remove-label-and-exit options org repo pull-number label
+      (str "Pull request's 'mergeable_state is' '" state "'")))
+  
+  ; ***************************************************************************
+  ; UPDATE OUT OF DATE BRANCH
+  ; ***************************************************************************
+  (def head-branch ((pull :head) :ref))
   (def base-branch ((pull :base) :ref))
   (if (= "behind" state)
-    (update-pull-branch-and-exit options org repo pull-number label base-branch branch))
+    (update-pull-branch-and-exit options org repo pull-number label base-branch head-branch))
 
-  ; (squash-merge-pull-and-exit options org repo pull-number (pull :title) label)
+  ; ***************************************************************************
+  ; WAIT TO POLL AGAIN IF JENKINS CHECK IS PENDING
+  ; ***************************************************************************
+  (if (= "blocked" state) (do 
+    (def statuses-result (statuses-for-ref options org repo head-sha))
+    (def statuses (parse-string (statuses-result :body)))
+    ; (println "status context:" (get (first statuses) "context"))
+    (def latest-jenkins-status (first (filter 
+      (fn [status] (= "continuous-integration/jenkins/branch" (get status "context")))
+    statuses)))
+    (def jenkins-state (get latest-jenkins-status "state"))
+    (if (= "pending" jenkins-state) (do
+      (println "Latest jenkins status is 'pending'. Must wait for result")))))
 
-  (println "No action taken")
+  ; ***************************************************************************
+  ; REMOVE LABEL BECAUSE PULL REQUEST LACKS APPROVAL
+  ; ***************************************************************************
+  (if (= "blocked" state)
+    (remove-label-and-exit options org repo pull-number label
+      (str "Pull request's 'mergeable_state is' '" state "': "
+      " lacks approval or has requested changes")))
+
+  (println "No action taken on pull request" pull-number)
 )
-
-;;X mergeable_state dirty means merge conflict?
-;;X mergeable_state blocked means requests changes?
-;;mergeable_state behind means out of date
-;;mergeable_state clean means it can be merged?
-;;X mergeable means the github can do an auto merge
-
-;;to update a PR: https://developer.github.com/v3/pulls/#update-a-pull-request
-
-;;behind takes priority over blocked -- maybe check out statuses EEEEEWWWWWW
-
-;;1142: merge conflicts, approved
-;; mergeable_state: dirty
-;; mergeable: false
-
-;;1247 out of date, no merge conflicts, needs review, tests pass
-;; mergeable_state: behind
-;; mergeable: true (i have admin, though...)
-
-;;1178 up to date, approved, tests pass
-;; mergeable_state: clean
-;; mergeable: true
-
-;;8 up to date, no merge conflicts, requested changes
-;;mergeable_state: blocked
-;;mergeable: true
-
-;;1189 out of date, no merge conflicts, requested changes
