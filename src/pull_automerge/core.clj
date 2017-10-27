@@ -166,9 +166,15 @@
     (def latest-jenkins-status (first (filter 
       (fn [status] (= "continuous-integration/jenkins/branch" (get status "context")))
     statuses)))
+    (if (= nil latest-jenkins-status) (do
+      (println (str "Could not find jenkins status for " head-sha "."
+      " Must wait for jenkins result."))
+      (exit)))
     (def jenkins-state (get latest-jenkins-status "state"))
+    (println (str "Lastest jenkins status is '" jenkins-state "'."))
     (if (= "pending" jenkins-state) (do
-      (println "Latest jenkins status is 'pending'. Must wait for result")))))
+      (println "Must wait for jenkins result.")
+      (exit)))))
 
   ; ***************************************************************************
   ; REMOVE LABEL BECAUSE PULL REQUEST LACKS APPROVAL
