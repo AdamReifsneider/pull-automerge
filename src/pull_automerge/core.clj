@@ -63,12 +63,9 @@
   (exit))
 
 (defn squash-merge-pull-and-exit [options org repo pull-number pull-title label]
-  (println "Attemption to squash merge PR#" pull-number)
-  (def all-options (merge options 
-    {
-      :commit_title (pull-title)
-      :merge_method "squash"
-    }))
+  (println "Attempting to squash merge PR#" pull-number)
+  (def body (generate-string {:commit_title pull-title :merge_method "squash"}))
+  (def all-options (merge options {:body body}))
   (def result @(http/put
     (str "https://api.github.com/repos/" org "/" repo "/pulls/" pull-number "/merge")
       all-options))
@@ -137,7 +134,7 @@
   (println "mergeable_state is" state)
 
   ; ***************************************************************************
-  ; MERGE PULL REQUEST
+  ; MERGE READY PULL REQUEST
   ; ***************************************************************************
   (if (= "clean" state)
     (squash-merge-pull-and-exit options org repo pull-number (pull :title) label))
@@ -167,8 +164,8 @@
       (fn [status] (= "continuous-integration/jenkins/branch" (get status "context")))
     statuses)))
     (if (= nil latest-jenkins-status) (do
-      (println (str "Could not find jenkins status for " head-sha "."
-      " Must wait for jenkins result."))
+      (println (str "Could not find jenkins status for " head-sha ":"
+      " Must wait for jenkins status to be reported."))
       (exit)))
     (def jenkins-state (get latest-jenkins-status "state"))
     (println (str "Lastest jenkins status is '" jenkins-state "'."))
