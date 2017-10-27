@@ -34,6 +34,12 @@
 
 (defn exit [] (System/exit 0))
 
+(defn check-rate-limit [options]
+  (def result @(http/get "https://api.github.com/rate_limit"))
+  (def rate-limit ((parse-string (result :body) true) :rate))
+  (println (str "Rate limit: " (rate-limit :limit)
+    ", remaining: " (rate-limit :remaining))))
+
 (defn remove-label-and-exit [options org repo issue-number label reason]
   (println reason)
   (println (str "Removing label '" label "'"))
@@ -90,7 +96,7 @@
   (def repo "axiom-platform")
   (def label "Automerge")
   (def options (generate-options token))
-  ; TODO crawl to /issues from root url
+  (check-rate-limit options)
 
   ; ***************************************************************************
   ; GET OPEN LABELED ISSUES
