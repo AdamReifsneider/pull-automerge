@@ -135,7 +135,6 @@
   (def head-sha ((pull :head) :sha))
   (def state (pull :mergeable_state))
   (println "mergeable_state is" state)
-  (print-json-object pull)
 
   ; ***************************************************************************
   ; MERGE PULL REQUEST
@@ -164,7 +163,6 @@
   (if (= "blocked" state) (do 
     (def statuses-result (statuses-for-ref options org repo head-sha))
     (def statuses (parse-string (statuses-result :body)))
-    ; (println "status context:" (get (first statuses) "context"))
     (def latest-jenkins-status (first (filter 
       (fn [status] (= "continuous-integration/jenkins/branch" (get status "context")))
     statuses)))
