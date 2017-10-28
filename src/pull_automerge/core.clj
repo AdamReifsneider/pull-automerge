@@ -97,7 +97,7 @@
   (def label "Automerge")
   (def options (generate-options token))
   (check-rate-limit options)
-  (exit)
+  
   ; ***************************************************************************
   ; GET OPEN LABELED ISSUES
   ; ***************************************************************************
