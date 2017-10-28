@@ -35,8 +35,8 @@
 (defn exit [] (System/exit 0))
 
 (defn check-rate-limit [options]
-  (def result @(http/get "https://api.github.com/rate_limit"))
-  (def rate-limit ((parse-string (result :body) true) :rate))
+  (def result @(http/get "https://api.github.com/rate_limit" options))
+  (def rate-limit (((parse-string (result :body) true) :resources) :core))
   (println (str "Rate limit: " (rate-limit :limit)
     ", remaining: " (rate-limit :remaining))))
 
@@ -114,7 +114,6 @@
     (do
       (println (str "No automergeable issues in '" 
         org "/" repo "' with label '" label "'"))
-      (println "Exiting...")
       (exit)))
 
   ; ***************************************************************************
