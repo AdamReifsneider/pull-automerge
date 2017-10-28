@@ -36,6 +36,7 @@
 
 (defn check-rate-limit [options]
   (def result @(http/get "https://api.github.com/rate_limit" options))
+  (println (result :body) true))
   (def rate-limit (((parse-string (result :body) true) :resources) :core))
   (println (str "Rate limit: " (rate-limit :limit)
     ", remaining: " (rate-limit :remaining))))
@@ -97,7 +98,7 @@
   (def label "Automerge")
   (def options (generate-options token))
   (check-rate-limit options)
-
+  (exit)
   ; ***************************************************************************
   ; GET OPEN LABELED ISSUES
   ; ***************************************************************************
