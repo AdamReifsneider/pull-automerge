@@ -89,8 +89,7 @@
   (println "Get statuses result:" (result :status))
   result)
 
-(defn -main
-  [& args]
+(defn execute [args]
   (def token (first args))
   (def org "ai-labs-team")
   (def repo "axiom-platform")
@@ -186,5 +185,9 @@
       (str "Pull request's 'mergeable_state is' '" state "': "
       " lacks approval or has requested changes")))
 
-  (println "No action taken on pull request" pull-number)
-)
+  (println "No action taken on pull request" pull-number))
+
+(defn handle-event [event]
+  )
+
+(defn -main [& args] (execute args))
