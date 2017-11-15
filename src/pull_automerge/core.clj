@@ -3,6 +3,9 @@
    :implements [com.amazonaws.services.lambda.runtime.RequestStreamHandler])
   (:require
     [clojure.pprint :refer [pprint]]
+    [clojure.data.json :as json]
+    [clojure.string :as s]
+    [clojure.java.io :as io]
     [org.httpkit.client :as http] 
     [cheshire.core :refer :all]
   ))
@@ -32,7 +35,9 @@
   (str 
   "https://api.github.com/repos/" org "/" repo "/issues/" issue-number "/labels/" label))
 
-(defn exit [] (System/exit 0))
+(defn exit [context]
+  (if (not= context nil) (.done context nil 0))
+  (System/exit 0))
 
 (defn check-rate-limit [options]
   (def result @(http/get "https://api.github.com/rate_limit" options))
@@ -40,13 +45,13 @@
   (println (str "Rate limit: " (rate-limit :limit)
     ", remaining: " (rate-limit :remaining))))
 
-(defn remove-label-and-exit [options org repo issue-number label reason]
+(defn remove-label-and-exit [options org repo issue-number label reason context]
   (println reason)
   (println (str "Removing label '" label "'"))
   (def delete-url (generate-delete-label-url org repo issue-number label))
   (def delete-result @(http/delete delete-url options))
   (println "Delete label result:" (delete-result :status))
-  (exit))
+  (exit context))
 
 (defn get-pull-request [options org repo pull-number]
   (def result @(http/get 
@@ -55,7 +60,7 @@
   (parse-string (result :body) true))
 
 (defn update-pull-branch-and-exit 
-[options org repo pull-number label source-branch target-branch]
+[options org repo pull-number label source-branch target-branch context]
   (println (str "PR# " pull-number " is out of date."
     " Merging '" source-branch "' into '" target-branch "'"))
   (def body (generate-string { :head source-branch :base target-branch }))
@@ -64,11 +69,11 @@
     (str "https://api.github.com/repos/" org "/" repo "/merges" ) all-options))
   (println "Merge result:" (result :status))
   (if (result :error)
-    (remove-label-and-exit options org repo pull-number label 
+    (remove-label-and-exit options org repo pull-number label context
       (str "MERGE ERROR: " (result :error))))
-  (exit))
+  (exit context))
 
-(defn squash-merge-pull-and-exit [options org repo pull-number pull-title label]
+(defn squash-merge-pull-and-exit [options org repo pull-number pull-title label context]
   (println "Attempting to squash merge PR#" pull-number)
   (def body (generate-string {:commit_title pull-title :merge_method "squash"}))
   (def all-options (merge options {:body body}))
@@ -77,9 +82,9 @@
       all-options))
   (println "Merge result:" (result :status))
   (if (result :error)
-    (remove-label-and-exit options org repo pull-number label 
+    (remove-label-and-exit options org repo pull-number label context
       (str "MERGE ERROR: " (result :error))))
-  (exit))
+  (exit context))
 
 (defn statuses-for-ref [options org repo ref]
   (println "Getting statuses for" ref)
@@ -89,7 +94,7 @@
   (println "Get statuses result:" (result :status))
   result)
 
-(defn execute [args]
+(defn execute [args context]
   (def token (first args))
   (def org "ai-labs-team")
   (def repo "axiom-platform")
@@ -113,7 +118,7 @@
     (do
       (println (str "No automergeable issues in '" 
         org "/" repo "' with label '" label "'"))
-      (exit)))
+      (exit context)))
 
   ; ***************************************************************************
   ; SET OLDEST ISSUE
@@ -126,7 +131,7 @@
   ; REMOVE LABEL FROM NON-PULL-REQUEST
   ; ***************************************************************************
   (if (nil? (pull :pull_request))
-    (remove-label-and-exit options org repo pull-number label
+    (remove-label-and-exit options org repo pull-number label context
       "Issue has no key 'pull_request' present, so it must not be a pull request"))
 
   ; ***************************************************************************
@@ -141,13 +146,13 @@
   ; MERGE READY PULL REQUEST
   ; ***************************************************************************
   (if (= "clean" state)
-    (squash-merge-pull-and-exit options org repo pull-number (pull :title) label))
+    (squash-merge-pull-and-exit options org repo pull-number (pull :title) label context))
 
   ; ***************************************************************************
   ; REMOVE LABEL FROM CONFLICTED BRANCH
   ; ***************************************************************************
   (if (= "dirty" state)
-    (remove-label-and-exit options org repo pull-number label
+    (remove-label-and-exit options org repo pull-number label context
       (str "Pull request's 'mergeable_state is' '" state "'")))
   
   ; ***************************************************************************
@@ -156,7 +161,7 @@
   (def head-branch ((pull :head) :ref))
   (def base-branch ((pull :base) :ref))
   (if (= "behind" state)
-    (update-pull-branch-and-exit options org repo pull-number label base-branch head-branch))
+    (update-pull-branch-and-exit options org repo pull-number label base-branch head-branch context))
 
   ; ***************************************************************************
   ; WAIT TO POLL AGAIN IF JENKINS CHECK IS PENDING
@@ -170,24 +175,49 @@
     (if (= nil latest-jenkins-status) (do
       (println (str "Could not find jenkins status for " head-sha ":"
       " Must wait for jenkins status to be reported."))
-      (exit)))
+      (exit context)))
     (def jenkins-state (get latest-jenkins-status "state"))
     (println (str "Lastest jenkins status is '" jenkins-state "'."))
     (if (= "pending" jenkins-state) (do
       (println "Must wait for jenkins result.")
-      (exit)))))
+      (exit context)))))
 
   ; ***************************************************************************
   ; REMOVE LABEL BECAUSE PULL REQUEST LACKS APPROVAL
   ; ***************************************************************************
   (if (= "blocked" state)
-    (remove-label-and-exit options org repo pull-number label
+    (remove-label-and-exit options org repo pull-number label context
       (str "Pull request's 'mergeable_state is' '" state "': "
       " lacks approval or has requested changes")))
 
   (println "No action taken on pull request" pull-number))
 
-(defn handle-event [event]
-  )
+; ***************************************************************************
+; EXECUTE FROM COMMAND LINE
+; ***************************************************************************
+(defn -main [& args] (execute args nil))
 
-(defn -main [& args] (execute args))
+; ***************************************************************************
+; EXECUTE BASED ON AWS EVENT
+; ***************************************************************************
+(defn execute-event [event context] (execute [(event :user-token)] context))
+
+; ***************************************************************************
+; MAP CAMEL KEYS TO KEBAB
+; ***************************************************************************
+(defn key->keyword [key-string]
+  (-> key-string
+      (s/replace #"([a-z])([A-Z])" "$1-$2")
+      (s/replace #"([A-Z]+)([A-Z])" "$1-$2")
+      (s/lower-case)
+      (keyword)))
+
+; ***************************************************************************
+; READ IN AWS EVENT TO BE EXECUTED
+; ***************************************************************************
+(defn -handleRequest [this input-stream output-stream context]
+  (let [w (io/writer output-stream)]
+    (-> (json/read (io/reader input-stream) :key-fn key->keyword)
+        (execute-event context)
+        (json/write w))
+    (.flush w)))
