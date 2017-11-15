@@ -7,6 +7,7 @@
     [org.clojure/clojure "1.8.0"] 
     [http-kit "2.2.0"]
     [cheshire "5.8.0"]
+    [com.amazonaws/aws-lambda-java-core "1.0.0"]
   ]
   :main ^:skip-aot pull-automerge.core
   :target-path "target/%s"
