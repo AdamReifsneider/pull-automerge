@@ -94,9 +94,12 @@
   (println "Get statuses result:" (result :status))
   result)
 
+(defn contains-label [labels label]
+  (> (count (filter #(= (% :name) label) labels)) 0))
+
 (defn filter-by-label [ response-data label ]
-  (filter 
-    #(> (count (filter (fn[m] (= (m :name) label)) (% :labels))) 0) 
+  (filter
+    #(contains-label (% :labels) label)
     (json/read-str (response-data :body) :key-fn keyword)))
 
 (defn get-oldest-entry [ coll ]
