@@ -121,17 +121,17 @@
     options))
   (println "Retrieve automerge issues status: " (pulls-result :status))
   (def priorities (filter-by-label pulls-result priority))
-  (def pulls (get-oldest-entry priorities) )
+  (def pull (get-oldest-entry priorities) )
   (if (= 0 (count priorities))
     (do
-      (def pulls  
+      (def pull  
 	(get-oldest-entry (json/read-str (pulls-result :body) :key-fn keyword)))))
-  (println "PR to merge: " pulls)
+  (println "PR to merge: " pull)
  
   ; ***************************************************************************
   ; EXIT IF NO LABELED ISSUES FOUND
   ; ***************************************************************************
-  (if (= 0 (count pulls))
+  (if (nil? pull))
     (do
       (println (str "No automergeable issues in '" 
         org "/" repo "' with label '" label "'"))
@@ -140,7 +140,6 @@
   ; ***************************************************************************
   ; SET OLDEST ISSUE
   ; ***************************************************************************
-  (def pull (first pulls))
   (def pull-number (pull :number))
   (println "Found Issue with Title/Number: " (pull :title) "/" pull-number)
 
