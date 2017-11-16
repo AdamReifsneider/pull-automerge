@@ -94,13 +94,11 @@
   (println "Get statuses result:" (result :status))
   result)
 
-;Get all objects in response data that contains the specified label
 (defn filter-by-label [ response-data label ]
   (filter 
     #(> (count (filter (fn[m] (= (m :name) label)) (% :labels))) 0) 
     (json/read-str (response-data :body) :key-fn keyword)))
 
-;Get entry from list with the earliest creation date
 (defn get-oldest-entry [ coll ]
   (first (sort-by :created_at coll)))
 
@@ -126,7 +124,6 @@
     (do
       (def pull  
 	(get-oldest-entry (json/read-str (pulls-result :body) :key-fn keyword)))))
-  (println "PR to merge: " pull)
  
   ; ***************************************************************************
   ; EXIT IF NO LABELED ISSUES FOUND
