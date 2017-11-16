@@ -2,6 +2,7 @@
   (:gen-class
    :implements [com.amazonaws.services.lambda.runtime.RequestStreamHandler])
   (:require
+    [clojure.data.json :as json]
     [clojure.pprint :refer [pprint]]
     [org.httpkit.client :as http] 
     [cheshire.core :refer :all]
@@ -25,7 +26,6 @@
   (str "https://api.github.com/repos/" org "/" repo "/issues"
       "?labels=" (apply str(interpose "," labels))
       "&state=open"
-      "&page=0&per_page=1"
       "&sort=created&direction=asc"))
 
 (defn generate-delete-label-url [org repo issue-number label]
@@ -89,36 +89,40 @@
   (println "Get statuses result:" (result :status))
   result)
 
+;Get all objects in response data that contains the specified label
+(defn filter-by-label [ response-data label ]
+  (filter 
+    #(> (count (filter (fn[m] (= (m :name) label)) (% :labels))) 0) 
+    (json/read-str (response-data :body) :key-fn keyword)))
+
+;Get entry from list with the earliest creation date
+(defn get-oldest-entry [ coll ]
+  (last (sort-by :created_at coll)))
+
 (defn execute [args]
   (def token (first args))
   (def org "ai-labs-team")
   (def repo "axiom-platform")
   (def label "Automerge")
-  (def priority "High%20Priority")
+  (def priority "High Priority")
   (def options (generate-options token))
   (check-rate-limit options)
  
   ; ***************************************************************************
-  ; GET OPEN LABELED ISSUES (HIGH PRIORITY FIRST)
-  ; ***************************************************************************
-  (def pulls-result @(http/get
-    (get-pull-search-url org repo label priority)
-    options))
-  (println "Retrieve automerge + high priority issues status: " (pulls-result :status))
-  (def pulls (parse-string (pulls-result :body) true)) 
- 
-  ; ***************************************************************************
   ; GET OPEN LABELED ISSUES
   ; ***************************************************************************
-  (if (= 0 (count pulls))
-    (do 
-      (def pulls-result @(http/get 
-        (get-pull-search-url org repo label)
-        options))
-      (println "Retrieve automerge issues status: " (pulls-result :status))
-      (def pulls (parse-string (pulls-result :body) true)))
-  )
-
+  (def pulls-result @(http/get
+    (get-pull-search-url org repo label)
+    options))
+  (println "Retrieve automerge issues status: " (pulls-result :status))
+  (def priorities (filter-by-label pulls-result priority))
+  (def pulls (get-oldest-entry priorities) )
+  (if (= 0 (count priorities))
+    (do
+      (def pulls  
+	(get-oldest-entry (json/read-str (pulls-result :body) :key-fn keyword)))))
+  (println "PR to merge: " pulls)
+ 
   ; ***************************************************************************
   ; EXIT IF NO LABELED ISSUES FOUND
   ; ***************************************************************************
