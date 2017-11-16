@@ -102,7 +102,7 @@
 
 ;Get entry from list with the earliest creation date
 (defn get-oldest-entry [ coll ]
-  (last (sort-by :created_at coll)))
+  (first (sort-by :created_at coll)))
 
 (defn execute [args context]
   (def token (first args))
