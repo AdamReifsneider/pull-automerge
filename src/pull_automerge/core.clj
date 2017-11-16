@@ -131,7 +131,7 @@
   ; ***************************************************************************
   ; EXIT IF NO LABELED ISSUES FOUND
   ; ***************************************************************************
-  (if (nil? pull))
+  (if (nil? pull)
     (do
       (println (str "No automergeable issues in '" 
         org "/" repo "' with label '" label "'"))
