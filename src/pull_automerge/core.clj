@@ -118,13 +118,9 @@
     (get-pull-search-url org repo label)
     options))
   (println "Retrieve automerge issues status: " (pulls-result :status))
-  (def priorities (filter-by-label pulls-result priority))
-  (def pull (get-oldest-entry priorities) )
-  (if (= 0 (count priorities))
-    (do
-      (def pull  
-	(get-oldest-entry (json/read-str (pulls-result :body) :key-fn keyword)))))
- 
+  (def pull (or 
+              (get-oldest-entry (filter-by-label pulls-result priority))
+              (get-oldest-entry (json/read-str (pulls-result :body) :key-fn keyword)))) 
   ; ***************************************************************************
   ; EXIT IF NO LABELED ISSUES FOUND
   ; ***************************************************************************
