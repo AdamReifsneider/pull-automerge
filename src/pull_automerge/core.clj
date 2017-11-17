@@ -2,7 +2,6 @@
   (:gen-class
    :implements [com.amazonaws.services.lambda.runtime.RequestStreamHandler])
   (:require
-    [clojure.data.json :as json]
     [clojure.pprint :refer [pprint]]
     [clojure.data.json :as json]
     [clojure.string :as s]
