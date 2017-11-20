@@ -178,9 +178,9 @@
 ; ***************************************************************************
 ; READ IN AWS EVENT TO BE EXECUTED
 ; ***************************************************************************
-(defn -handleRequest [this input-stream output-stream]
+(defn -handleRequest [this input-stream output-stream context]
   (let [w (io/writer output-stream)]
     (-> (json/read (io/reader input-stream) :key-fn key->keyword)
-        (execute-event)
+        (execute-event context)
         (json/write w))
     (.flush w)))
