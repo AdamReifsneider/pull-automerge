@@ -32,7 +32,7 @@
       "&sort=created&direction=asc")
     options))
   (println "Retrieve automerge issues status: " (pulls-result :status))
-  (parse-string (pulls-result :body) true))
+  pulls-result)
 
 (defn remove-label [options org repo issue-number label reason]
   (println reason)
@@ -49,10 +49,7 @@
   (println (str "Get pull request " pull-number " status: " (result :status)))
   (parse-string (result :body) true))
 
-(defn get-oldest-issue-as-pull-request [pulls org repo label options]
-  (def pull (or 
-            (get-oldest-entry (filter-by-label pulls priority))
-            (get-oldest-entry (json/read-str (pulls :body) :key-fn keyword))))
+(defn get-oldest-issue-as-pull-request [pull org repo label options]
   (if (nil? pull)
     (do (println (str "No automergeable issues in '" 
           org "/" repo "' with label '" label "'"))
@@ -117,8 +114,6 @@
 (defn get-oldest-entry [ coll ]
   (first (sort-by :created_at coll)))
 
-(defn execute [args context]
-
 (defn handle-blocked-state [options org repo label pull state]
   (def head-sha ((pull :head) :sha))
   (def statuses-result (statuses-for-ref options org repo head-sha))
@@ -147,9 +142,13 @@
   (def options (generate-options token))
   (check-rate-limit options)
 
-  (def pulls (get-opened-labelled-issues org repo label options))
+  (def pulls (get-opened-labelled-issues org repo options label))
 
-  (def pull (get-oldest-issue-as-pull-request pulls org repo label options))
+  (def pull (or 
+            (get-oldest-entry (filter-by-label pulls priority))
+            (get-oldest-entry (json/read-str (pulls :body) :key-fn keyword))))
+
+  (def pull (get-oldest-issue-as-pull-request pull org repo label options))
 
   (if (not (nil? pull))
     (do
