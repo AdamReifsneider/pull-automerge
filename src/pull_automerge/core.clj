@@ -107,6 +107,25 @@
   (println "Get statuses result:" (result :status))
   result)
 
+(defn handle-blocked-state [options org repo pull]
+  (def head-sha ((pull :head) :sha))
+  (def statuses-result (statuses-for-ref options org repo head-sha))
+  (def statuses (parse-string (statuses-result :body)))
+  (def latest-jenkins-status (first (filter 
+    (fn [status] (= "continuous-integration/jenkins/branch" (get status "context")))
+      statuses)))
+  (if (= nil latest-jenkins-status) (do
+    (println (str "Could not find jenkins status for " head-sha ":"
+      " Must wait for jenkins status to be reported."))))
+  (def jenkins-state (get latest-jenkins-status "state"))
+  (println (str "Lastest jenkins status is '" jenkins-state "'."))
+  (if (= "pending" jenkins-state) 
+    (println "Must wait for jenkins result.")
+    (do 
+      (remove-label options org repo pull-number label
+      (str "Pull request's 'mergeable_state is' '" state "': "
+        " lacks approval or has requested changes")))))
+
 (defn execute [args]
   (def token (first args))
   (def org "ai-labs-team")
@@ -119,50 +138,24 @@
 
   (def pull (get-oldest-issue-as-pull-request pulls org repo label options))
 
-  (if (nil? pull)
-    0
+  (if (not (nil? pull))
     (do
-      (def head-sha ((pull :head) :sha))
       (def state (pull :mergeable_state))
-      (println "mergeable_state is" state)))
+      (println "mergeable_state is" state)
 
-  (def state-map 
-    {"clean" 
-      (fn [] (squash-merge-pull options org repo pull-number (pull :title) label),
-    {"dirty"
-      (fn [] (remove-label options org repo pull-number label
-        (str "Pull request's 'mergeable_state is' '" state "'")))},
-    {"behind"
-      (fn [] (update-pull-branch options org repo pull-number label ((pull :base) :ref) ((pull :head) :ref)))},
-    {"blocked"
-      (fn )}
-    }))
-
-  ; ***************************************************************************
-  ; WAIT TO POLL AGAIN IF JENKINS CHECK IS PENDING
-  ; ***************************************************************************
-  (if (= "blocked" state) (do
-    (def statuses-result (statuses-for-ref options org repo head-sha))
-    (def statuses (parse-string (statuses-result :body)))
-    (def latest-jenkins-status (first (filter 
-      (fn [status] (= "continuous-integration/jenkins/branch" (get status "context")))
-        statuses)))
-    (if (= nil latest-jenkins-status) (do
-      (println (str "Could not find jenkins status for " head-sha ":"
-        " Must wait for jenkins status to be reported."))))
-    (def jenkins-state (get latest-jenkins-status "state"))
-    (println (str "Lastest jenkins status is '" jenkins-state "'."))
-    (if (= "pending" jenkins-state) (do
-      (println "Must wait for jenkins result.")))))
-
-  ; ***************************************************************************
-  ; REMOVE LABEL BECAUSE PULL REQUEST LACKS APPROVAL
-  ; ***************************************************************************
-  (if (= "blocked" state)
-    (remove-label options org repo pull-number label
-      (str "Pull request's 'mergeable_state is' '" state "': "
-      " lacks approval or has requested changes")))
-  0)
+      (def state-map 
+        {"clean" 
+          (fn [] (squash-merge-pull options org repo pull-number (pull :title) label))},
+        {"dirty"
+          (fn [] (remove-label options org repo pull-number label
+            (str "Pull request's 'mergeable_state is' '" state "'")))},
+        {"behind"
+          (fn [] (update-pull-branch options org repo pull-number label ((pull :base) :ref) ((pull :head) :ref)))},
+        {"blocked"
+          (fn [] (handle-blocked-state options org repo pull))})
+      (def handle-pull (state-map state))
+      (handle-pull)
+  0)))
 
 ; ***************************************************************************
 ; EXECUTE FROM COMMAND LINE
