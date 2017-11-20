@@ -32,7 +32,7 @@
       "&sort=created&direction=asc")
     options))
   (println "Retrieve automerge issues status: " (pulls-result :status))
-  pulls-result)
+  (json/read-str (pulls-result :body) :key-fn keyword))
 
 (defn remove-label [options org repo issue-number label reason]
   (println reason)
@@ -52,16 +52,14 @@
 (defn contains-label [labels label]
   (> (count (filter #(= (% :name) label) labels)) 0))
 
-(defn filter-by-label [ response-data label ]
-  (filter
-    #(contains-label (% :labels) label)
-    (json/read-str (response-data :body) :key-fn keyword)))
+(defn filter-by-label [ issues label ]
+  (filter #(contains-label (% :labels) label) issues))
 
-(defn get-oldest-issue-as-pull-request [pulls org repo label options]
-  (def priority "High Priority")
-  (def pull (or 
-            (first (filter-by-label pulls priority))
-            (first (json/read-str (pulls :body) :key-fn keyword))))
+(defn get-oldest-issue-as-pull-request [pulls org repo label options priority-label]
+  (def pull 
+    (or 
+      (first (filter-by-label pulls priority-label)) 
+      (first pulls)))
   (if (nil? pull)
     (do (println (str "No automergeable issues in '" 
           org "/" repo "' with label '" label "'"))
@@ -139,12 +137,13 @@
   (def org "ai-labs-team")
   (def repo "axiom-platform")
   (def label "Automerge")
+  (def priority "High Priority")
   (def options (generate-options token))
   (check-rate-limit options)
 
   (def pulls (get-opened-labelled-issues org repo options label))
 
-  (def pull (get-oldest-issue-as-pull-request pulls org repo label options))
+  (def pull (get-oldest-issue-as-pull-request pulls org repo label options priority))
 
   (if (not (nil? pull))
     (do
