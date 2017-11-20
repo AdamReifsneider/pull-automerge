@@ -35,36 +35,12 @@
   (println "Retrieve automerge issues status: " (pulls-result :status))
   (parse-string (pulls-result :body) true))
 
-(defn get-oldest-issue-as-pull-request [pulls org repo label options]
-  (if (= 0 (count pulls))
-    (do (println (str "No automergeable issues in '" 
-          org "/" repo "' with label '" label "'"))
-        (nil))
-    (do
-      (def pull (first pulls))
-      (def pull-number (pull :number))
-      (println "Found Issue with Title/Number: " (pull :title) "/" pull-number)
-      (if (nil? (pull :pull_request))
-        (do 
-          (remove-label options org repo pull-number label
-            "Issue has no key 'pull_request' present, so it must not be a pull request")
-          (nil))
-        (do (get-pull-request options org repo pull-number))))))
-
-(defn generate-delete-label-url [org repo issue-number label]
-  (str 
-  "https://api.github.com/repos/" org "/" repo "/issues/" issue-number "/labels/" label))
-
-(defn check-rate-limit [options]
-  (def result @(http/get "https://api.github.com/rate_limit" options))
-  (def rate-limit (((parse-string (result :body) true) :resources) :core))
-  (println (str "Rate limit: " (rate-limit :limit)
-    ", remaining: " (rate-limit :remaining))))
-
 (defn remove-label [options org repo issue-number label reason]
   (println reason)
   (println (str "Removing label '" label "'"))
-  (def delete-url (generate-delete-label-url org repo issue-number label))
+  (def delete-url 
+    (str "https://api.github.com/repos/" org "/" repo 
+      "/issues/" issue-number "/labels/" label))
   (def delete-result @(http/delete delete-url options))
   (println "Delete label result:" (delete-result :status)))
 
@@ -73,6 +49,28 @@
     (str "https://api.github.com/repos/" org "/" repo "/pulls/" pull-number) options))
   (println (str "Get pull request " pull-number " status: " (result :status)))
   (parse-string (result :body) true))
+
+(defn get-oldest-issue-as-pull-request [pulls org repo label options]
+  (if (= 0 (count pulls))
+    (do (println (str "No automergeable issues in '" 
+          org "/" repo "' with label '" label "'"))
+        nil)
+    (do
+      (def pull (first pulls))
+      (def pull-number (pull :number))
+      (println "Found Issue with Title/Number: " (pull :title) "/" pull-number)
+      (if (nil? (pull :pull_request))
+        (do 
+          (remove-label options org repo pull-number label
+            "Issue has no key 'pull_request' present, so it must not be a pull request")
+          nil)
+        (do (get-pull-request options org repo pull-number))))))
+
+(defn check-rate-limit [options]
+  (def result @(http/get "https://api.github.com/rate_limit" options))
+  (def rate-limit (((parse-string (result :body) true) :resources) :core))
+  (println (str "Rate limit: " (rate-limit :limit)
+    ", remaining: " (rate-limit :remaining))))
 
 (defn update-pull-branch
 [options org repo pull-number label source-branch target-branch]
@@ -107,7 +105,7 @@
   (println "Get statuses result:" (result :status))
   result)
 
-(defn handle-blocked-state [options org repo pull]
+(defn handle-blocked-state [options org repo label pull state]
   (def head-sha ((pull :head) :sha))
   (def statuses-result (statuses-for-ref options org repo head-sha))
   (def statuses (parse-string (statuses-result :body)))
@@ -145,14 +143,14 @@
 
       (def state-map 
         {"clean" 
-          (fn [] (squash-merge-pull options org repo pull-number (pull :title) label))},
-        {"dirty"
+          (fn [] (squash-merge-pull options org repo pull-number (pull :title) label)),
+        "dirty"
           (fn [] (remove-label options org repo pull-number label
-            (str "Pull request's 'mergeable_state is' '" state "'")))},
-        {"behind"
-          (fn [] (update-pull-branch options org repo pull-number label ((pull :base) :ref) ((pull :head) :ref)))},
-        {"blocked"
-          (fn [] (handle-blocked-state options org repo pull))})
+            (str "Pull request's 'mergeable_state is' '" state "'"))),
+        "behind"
+          (fn [] (update-pull-branch options org repo pull-number label ((pull :base) :ref) ((pull :head) :ref))),
+        "blocked"
+          (fn [] (handle-blocked-state options org repo label pull state))})
       (def handle-pull (state-map state))
       (handle-pull)
   0)))
@@ -160,7 +158,7 @@
 ; ***************************************************************************
 ; EXECUTE FROM COMMAND LINE
 ; ***************************************************************************
-(defn -main [& args] (execute args nil))
+(defn -main [& args] (execute args))
 
 ; ***************************************************************************
 ; EXECUTE BASED ON AWS EVENT
