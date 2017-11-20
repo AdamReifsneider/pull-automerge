@@ -163,7 +163,10 @@
 ; ***************************************************************************
 ; EXECUTE BASED ON AWS EVENT
 ; ***************************************************************************
-(defn execute-event [event] (execute [(event :user-token)]))
+(defn execute-event [event] 
+  (assert (not (nil? event)) "event is nil")
+  (assert (not (nil? (event :user-token))) (str "event token is nil: " event))
+  (execute [(event :user-token)]))
 
 ; ***************************************************************************
 ; MAP CAMEL KEYS TO KEBAB
