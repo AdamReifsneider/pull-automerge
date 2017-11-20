@@ -151,7 +151,7 @@
           (fn [] (update-pull-branch options org repo pull-number label ((pull :base) :ref) ((pull :head) :ref))),
         "blocked"
           (fn [] (handle-blocked-state options org repo label pull state))})
-      (def handle-pull (state-map state))
+      (def handle-pull (get state-map state (fn [] ())))
       (handle-pull)
   0)))
 
@@ -181,6 +181,6 @@
 (defn -handleRequest [this input-stream output-stream context]
   (let [w (io/writer output-stream)]
     (-> (json/read (io/reader input-stream) :key-fn key->keyword)
-        (execute-event context)
+        (execute-event)
         (json/write w))
     (.flush w)))
