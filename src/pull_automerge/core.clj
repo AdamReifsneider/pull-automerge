@@ -113,23 +113,29 @@
   (println "Get statuses result:" (result :status))
   result)
 
-(defn handle-blocked-state [options org repo label pull state]
+(defn required-status-failed [head-sha pull-statuses required-status]
+  (def latest-status (first (filter
+    (fn [status] (= required-status (get status "context")))
+      pull-statuses)))
+  (if (= nil latest-status)
+    (println (str "Could not find " required-status " status for " head-sha ":"
+      " Must wait for status to be reported."))
+    (do
+      (def state (get latest-status "state"))
+      (println (str "Lastest " required-status " status is '" state "'."))
+      (if (= "pending" state) 
+        (println "Must wait for " required-status " result.")
+        true))))
+
+(defn handle-blocked-state [options org repo label pull state required-status-1 required-status-2]
   (def head-sha ((pull :head) :sha))
   (def statuses (parse-string ((statuses-for-ref options org repo head-sha) :body)))
-  (def latest-jenkins-status (first (filter 
-    (fn [status] (= "continuous-integration/jenkins/branch" (get status "context")))
-      statuses)))
-  (if (= nil latest-jenkins-status)
-    (println (str "Could not find jenkins status for " head-sha ":"
-      " Must wait for jenkins status to be reported."))
-    (do
-    (def jenkins-state (get latest-jenkins-status "state"))
-    (println (str "Lastest jenkins status is '" jenkins-state "'."))
-    (if (= "pending" jenkins-state)
-      (println "Must wait for jenkins result.")
-      (remove-label options org repo pull-number label
-        (str "Pull request's 'mergeable_state is' '" state "': "
-          " lacks approval or has requested changes"))))))
+  (def failed-1 (required-status-failed head-sha statuses required-status-1))
+  (def failed-2 (required-status-failed head-sha statuses required-status-2))
+  (if (or failed-1 failed-2)
+    (remove-label options org repo pull-number label
+      (str "Pull request's 'mergeable_state is' '" state "':"
+        " lacks approval or has requested changes"))))
 
 (defn execute [args]
   (def token (first args))
@@ -149,8 +155,8 @@
       (def state (pull :mergeable_state))
       (println "mergeable_state is" state)
 
-      (def state-map 
-        {"clean" 
+      (def state-map
+        {"clean"
           (fn [] (squash-merge-pull options org repo pull-number (pull :title) label)),
         "dirty"
           (fn [] (remove-label options org repo pull-number label
@@ -158,7 +164,8 @@
         "behind"
           (fn [] (update-pull-branch options org repo pull-number label ((pull :base) :ref) ((pull :head) :ref))),
         "blocked"
-          (fn [] (handle-blocked-state options org repo label pull state))})
+          (fn [] (handle-blocked-state options org repo label pull state
+            "continuous-integration/jenkins/branch" "codeclimate"))})
       (def handle-pull (get state-map state (fn [] ())))
       (handle-pull)
   0)))
