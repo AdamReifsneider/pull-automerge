@@ -117,21 +117,25 @@
   (def latest-status (first (filter
     (fn [status] (= required-status (get status "context")))
       pull-statuses)))
-  (if (= nil latest-status)
-    (println (str "Could not find " required-status " status for " head-sha ":"
-      " Must wait for status to be reported."))
+  (if (= nil latest-status) 
+    (do
+      (println (str "Could not find " required-status " status for " head-sha ":"
+        " Must wait for status to be reported."))
+      false)
     (do
       (def state (get latest-status "state"))
       (println (str "Lastest " required-status " status is '" state "'."))
       (if (= "pending" state) 
-        (println "Must wait for " required-status " result.")
-        true))))
+        (do (println "Must wait for " required-status " result.") false)
+        (not (= "success" state))))))
 
 (defn handle-blocked-state [options org repo label pull state required-status-1 required-status-2]
   (def head-sha ((pull :head) :sha))
   (def statuses (parse-string ((statuses-for-ref options org repo head-sha) :body)))
   (def failed-1 (required-status-failed head-sha statuses required-status-1))
   (def failed-2 (required-status-failed head-sha statuses required-status-2))
+  (println (str required-status-1 " failed: " failed-1))
+  (println (str required-status-2 " failed: " failed-2))
   (if (or failed-1 failed-2)
     (remove-label options org repo pull-number label
       (str "Pull request's 'mergeable_state is' '" state "':"
