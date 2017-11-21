@@ -115,22 +115,21 @@
 
 (defn handle-blocked-state [options org repo label pull state]
   (def head-sha ((pull :head) :sha))
-  (def statuses-result (statuses-for-ref options org repo head-sha))
-  (def statuses (parse-string (statuses-result :body)))
+  (def statuses (parse-string ((statuses-for-ref options org repo head-sha) :body)))
   (def latest-jenkins-status (first (filter 
     (fn [status] (= "continuous-integration/jenkins/branch" (get status "context")))
       statuses)))
-  (if (= nil latest-jenkins-status) (do
+  (if (= nil latest-jenkins-status)
     (println (str "Could not find jenkins status for " head-sha ":"
-      " Must wait for jenkins status to be reported."))))
-  (def jenkins-state (get latest-jenkins-status "state"))
-  (println (str "Lastest jenkins status is '" jenkins-state "'."))
-  (if (= "pending" jenkins-state) 
-    (println "Must wait for jenkins result.")
-    (do 
+      " Must wait for jenkins status to be reported."))
+    (do
+    (def jenkins-state (get latest-jenkins-status "state"))
+    (println (str "Lastest jenkins status is '" jenkins-state "'."))
+    (if (= "pending" jenkins-state)
+      (println "Must wait for jenkins result.")
       (remove-label options org repo pull-number label
-      (str "Pull request's 'mergeable_state is' '" state "': "
-        " lacks approval or has requested changes")))))
+        (str "Pull request's 'mergeable_state is' '" state "': "
+          " lacks approval or has requested changes"))))))
 
 (defn execute [args]
   (def token (first args))
