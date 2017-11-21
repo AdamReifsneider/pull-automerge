@@ -24,16 +24,15 @@
     }
   })
 
-(defn get-opened-labelled-issues [org repo label options]
+(defn get-opened-labelled-issues [org repo options & labels]
   (def pulls-result @(http/get 
     (str "https://api.github.com/repos/" org "/" repo "/issues"
-      "?labels=" label
+      "?labels=" (apply str(interpose "," labels))
       "&state=open"
-      "&page=0&per_page=1"
       "&sort=created&direction=asc")
     options))
   (println "Retrieve automerge issues status: " (pulls-result :status))
-  (parse-string (pulls-result :body) true))
+  (json/read-str (pulls-result :body) :key-fn keyword))
 
 (defn remove-label [options org repo issue-number label reason]
   (println reason)
@@ -50,13 +49,22 @@
   (println (str "Get pull request " pull-number " status: " (result :status)))
   (parse-string (result :body) true))
 
-(defn get-oldest-issue-as-pull-request [pulls org repo label options]
-  (if (= 0 (count pulls))
+(defn contains-label [labels label]
+  (> (count (filter #(= (% :name) label) labels)) 0))
+
+(defn filter-by-label [ issues label ]
+  (filter #(contains-label (% :labels) label) issues))
+
+(defn get-oldest-issue-as-pull-request [pulls org repo label options priority-label]
+  (def pull 
+    (or 
+      (first (filter-by-label pulls priority-label)) 
+      (first pulls)))
+  (if (nil? pull)
     (do (println (str "No automergeable issues in '" 
           org "/" repo "' with label '" label "'"))
         nil)
     (do
-      (def pull (first pulls))
       (def pull-number (pull :number))
       (println "Found Issue with Title/Number: " (pull :title) "/" pull-number)
       (if (nil? (pull :pull_request))
@@ -129,12 +137,13 @@
   (def org "ai-labs-team")
   (def repo "axiom-platform")
   (def label "Automerge")
+  (def priority "High Priority")
   (def options (generate-options token))
   (check-rate-limit options)
 
-  (def pulls (get-opened-labelled-issues org repo label options))
+  (def pulls (get-opened-labelled-issues org repo options label))
 
-  (def pull (get-oldest-issue-as-pull-request pulls org repo label options))
+  (def pull (get-oldest-issue-as-pull-request pulls org repo label options priority))
 
   (if (not (nil? pull))
     (do
