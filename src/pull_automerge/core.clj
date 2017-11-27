@@ -161,9 +161,12 @@
       (def state (pull :mergeable_state))
       (println "mergeable_state is" state)
 
+      (def merge (fn [] (squash-merge-pull options org repo pull-number (pull :title) label)))
       (def state-map
         {"clean"
-          (fn [] (squash-merge-pull options org repo pull-number (pull :title) label)),
+          merge,
+        "unstable"
+          merge,
         "dirty"
           (fn [] (remove-label options org repo pull-number label
             (str "Pull request's 'mergeable_state is' '" state "'"))),
