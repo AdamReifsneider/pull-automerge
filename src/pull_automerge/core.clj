@@ -174,8 +174,8 @@
           (fn [] (update-pull-branch options org repo pull-number label ((pull :base) :ref) ((pull :head) :ref))),
         "blocked"
           (fn [] (handle-blocked-state options org repo label pull state
-            ; "continuous-integration/jenkins/branch" "codeclimate"))})
-            "continuous-integration/jenkins/branch"))})
+            "continuous-integration/jenkins/branch" "ci/circleci"))})
+            ; "continuous-integration/jenkins/branch"))})
       (def handle-pull (get state-map state (fn [] ())))
       (handle-pull)
   0)))
