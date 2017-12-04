@@ -176,7 +176,7 @@
           (fn [] (handle-blocked-state options org repo label pull state
             ; "continuous-integration/jenkins/branch" "ci/circleci"))})
             ; "continuous-integration/jenkins/branch"))})
-            "ci/circleci"))})
+            "ci/circleci" "codeclimate"))})
       (def handle-pull (get state-map state (fn [] ())))
       (handle-pull)
   0)))
