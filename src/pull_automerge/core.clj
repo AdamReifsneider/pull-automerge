@@ -129,16 +129,16 @@
         (do (println "Must wait for " required-status " result.") false)
         (not (= "success" state))))))
 
-; (defn handle-blocked-state [options org repo label pull state required-status-1 required-status-2]
-(defn handle-blocked-state [options org repo label pull state required-status-1]
+(defn handle-blocked-state [options org repo label pull state required-status-1 required-status-2]
+; (defn handle-blocked-state [options org repo label pull state required-status-1]
   (def head-sha ((pull :head) :sha))
   (def statuses (parse-string ((statuses-for-ref options org repo head-sha) :body)))
   (def failed-1 (required-status-failed head-sha statuses required-status-1))
-  ; (def failed-2 (required-status-failed head-sha statuses required-status-2))
+  (def failed-2 (required-status-failed head-sha statuses required-status-2))
   (println (str required-status-1 " failed: " failed-1))
-  ; (println (str required-status-2 " failed: " failed-2))
-  ; (if (or failed-1 failed-2)
-  (if failed-1
+  (println (str required-status-2 " failed: " failed-2))
+  (if (or failed-1 failed-2)
+  ; (if failed-1
     (remove-label options org repo pull-number label
       (str "Pull request's 'mergeable_state is' '" state "':"
         " lacks approval or has requested changes"))))
