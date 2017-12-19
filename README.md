@@ -1,3 +1,3 @@
 # pull-automerge
 
-`lein run [token]`
+`lein run [github access token]`
