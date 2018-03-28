@@ -43,6 +43,13 @@
   (def delete-result @(http/delete delete-url options))
   (println "Delete label result:" (delete-result :status)))
 
+(defn delete-branch [options org repo branch]
+  (println (str "Deleting branch '" branch "'"))
+  (def delete-url (str "https://api.github.com/repos/" org "/" repo 
+    "/git/refs/heads/" branch))
+  (def delete-result @(http/delete delete-url options))
+    (println "Delete branch result:" (delete-result :status)))
+
 (defn get-pull-request [options org repo pull-number]
   (def result @(http/get 
     (str "https://api.github.com/repos/" org "/" repo "/pulls/" pull-number) options))
@@ -93,8 +100,8 @@
     (remove-label options org repo pull-number label
       (str "MERGE ERROR: " (result :error)))))
 
-(defn squash-merge-pull [options org repo pull-number pull-title label]
-  (println "Attempting to squash merge PR#" pull-number)
+(defn squash-merge-pull [options org repo pull-number pull-title label branch]
+  (println "Attempting to squash merge PR#" pull-number " for branch '" branch "'")
   (def body (generate-string {:commit_title pull-title :merge_method "squash"}))
   (def all-options (merge options {:body body}))
   (def result @(http/put
@@ -103,13 +110,14 @@
   (println "Merge result:" (result :status))
   (if (result :error)
     (remove-label options org repo pull-number label
-      (str "MERGE ERROR: " (result :error)))))
+      (str "MERGE ERROR: " (result :error)))
+    (delete-branch options org repo branch)))
 
 (defn statuses-for-ref [options org repo ref]
   (println "Getting statuses for" ref)
   (def result @(http/get 
     (str "https://api.github.com/repos/" org "/" repo "/commits/" ref "/statuses")
-    options))
+      options))
   (println "Get statuses result:" (result :status))
   result)
 
@@ -165,12 +173,12 @@
       (def state (pull :mergeable_state))
       (println "mergeable_state is" state)
 
-      (def merge (fn [] (squash-merge-pull options org repo pull-number (pull :title) label)))
+      (def merge-pr (fn [] (squash-merge-pull options org repo pull-number (pull :title) label ((pull :head) :ref))))
       (def state-map
         {"clean"
-          merge,
+          merge-pr,
         "unstable"
-          merge,
+          merge-pr,
         "dirty"
           (fn [] (remove-label options org repo pull-number label
             (str "Pull request's 'mergeable_state is' '" state "'"))),
