@@ -25,7 +25,7 @@
   })
 
 (defn get-opened-labelled-issues [org repo options & labels]
-  (def pulls-result @(http/get 
+  (def pulls-result @(http/get
     (str "https://api.github.com/repos/" org "/" repo "/issues"
       "?labels=" (apply str(interpose "," labels))
       "&state=open"
@@ -37,21 +37,21 @@
 (defn remove-label [options org repo issue-number label reason]
   (println reason)
   (println (str "Removing label '" label "'"))
-  (def delete-url 
-    (str "https://api.github.com/repos/" org "/" repo 
+  (def delete-url
+    (str "https://api.github.com/repos/" org "/" repo
       "/issues/" issue-number "/labels/" label))
   (def delete-result @(http/delete delete-url options))
   (println "Delete label result:" (delete-result :status)))
 
 (defn delete-branch [options org repo branch]
   (println (str "Deleting branch '" branch "'"))
-  (def delete-url (str "https://api.github.com/repos/" org "/" repo 
+  (def delete-url (str "https://api.github.com/repos/" org "/" repo
     "/git/refs/heads/" branch))
   (def delete-result @(http/delete delete-url options))
     (println "Delete branch result:" (delete-result :status)))
 
 (defn get-pull-request [options org repo pull-number]
-  (def result @(http/get 
+  (def result @(http/get
     (str "https://api.github.com/repos/" org "/" repo "/pulls/" pull-number) options))
   (println (str "Get pull request " pull-number " status: " (result :status)))
   (parse-string (result :body) true))
@@ -63,19 +63,19 @@
   (filter #(contains-label (% :labels) label) issues))
 
 (defn get-oldest-issue-as-pull-request [pulls org repo label options priority-label]
-  (def pull 
-    (or 
-      (first (filter-by-label pulls priority-label)) 
+  (def pull
+    (or
+      (first (filter-by-label pulls priority-label))
       (first pulls)))
   (if (nil? pull)
-    (do (println (str "No automergeable issues in '" 
+    (do (println (str "No automergeable issues in '"
           org "/" repo "' with label '" label "'"))
         nil)
     (do
       (def pull-number (pull :number))
       (println "Found Issue with Title/Number: " (pull :title) "/" pull-number)
       (if (nil? (pull :pull_request))
-        (do 
+        (do
           (remove-label options org repo pull-number label
             "Issue has no key 'pull_request' present, so it must not be a pull request")
           nil)
@@ -115,7 +115,7 @@
 
 (defn statuses-for-ref [options org repo ref]
   (println "Getting statuses for" ref)
-  (def result @(http/get 
+  (def result @(http/get
     (str "https://api.github.com/repos/" org "/" repo "/commits/" ref "/statuses")
       options))
   (println "Get statuses result:" (result :status))
@@ -125,7 +125,7 @@
   (def latest-status (first (filter
     (fn [status] (= required-status (get status "context")))
       pull-statuses)))
-  (if (= nil latest-status) 
+  (if (= nil latest-status)
     (do
       (println (str "Could not find " required-status " status for " head-sha ":"
         " Must wait for status to be reported."))
@@ -133,24 +133,22 @@
     (do
       (def state (get latest-status "state"))
       (println (str "Lastest " required-status " status is '" state "'."))
-      (if (= "pending" state) 
+      (if (= "pending" state)
         (do (println "Must wait for " required-status " result.") false)
         (not (= "success" state))))))
 
-(defn handle-blocked-state [options org repo label pull state required-status-1 required-status-2 required-status-3 required-status-4 required-status-5]
+(defn handle-blocked-state [options org repo label pull state required-status-1 required-status-2 required-status-3 required-status-4]
   (def head-sha ((pull :head) :sha))
   (def statuses (parse-string ((statuses-for-ref options org repo head-sha) :body)))
   (def failed-1 (required-status-failed head-sha statuses required-status-1))
   (def failed-2 (required-status-failed head-sha statuses required-status-2))
   (def failed-3 (required-status-failed head-sha statuses required-status-3))
   (def failed-4 (required-status-failed head-sha statuses required-status-4))
-  (def failed-5 (required-status-failed head-sha statuses required-status-5))
   (println (str required-status-1 " failed: " failed-1))
   (println (str required-status-2 " failed: " failed-2))
   (println (str required-status-3 " failed: " failed-3))
   (println (str required-status-4 " failed: " failed-4))
-  (println (str required-status-5 " failed: " failed-5))
-  (if (or failed-1 failed-2 failed-3 failed-4 failed-5)
+  (if (or failed-1 failed-2 failed-3 failed-4)
     (remove-label options org repo pull-number label
       (str "Pull request's 'mergeable_state is' '" state "':"
         " lacks approval or has requested changes"))))
@@ -188,7 +186,7 @@
           (fn [] (handle-blocked-state options org repo label pull state
             ; "continuous-integration/jenkins/branch" "ci/circleci"))})
             ; "continuous-integration/jenkins/branch"))})
-            "ci/circleci: admin_end_to_end_tests" "ci/circleci: axiom_end_to_end_tests" "ci/circleci: lint_unit_test" "ci/circleci: service_integration_tests" "codeclimate"))})
+            "ci/circleci: axiom_end_to_end_tests" "ci/circleci: lint_unit_test" "ci/circleci: service_integration_tests" "codeclimate"))})
       (def handle-pull (get state-map state (fn [] ())))
       (handle-pull)
   0)))
@@ -201,7 +199,7 @@
 ; ***************************************************************************
 ; EXECUTE BASED ON AWS EVENT
 ; ***************************************************************************
-(defn execute-event [event] 
+(defn execute-event [event]
   (assert (not (nil? event)) "event is nil")
   (assert (not (nil? (event :user-token))) (str "event token is nil: " event))
   (execute [(event :user-token)]))
