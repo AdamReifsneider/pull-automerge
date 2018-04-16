@@ -43,6 +43,13 @@
   (def delete-result @(http/delete delete-url options))
   (println "Delete label result:" (delete-result :status)))
 
+(defn delete-branch [options org repo branch]
+  (println (str "Deleting branch '" branch "'"))
+  (def delete-url (str "https://api.github.com/repos/" org "/" repo 
+    "/git/refs/heads/" branch))
+  (def delete-result @(http/delete delete-url options))
+    (println "Delete branch result:" (delete-result :status)))
+
 (defn get-pull-request [options org repo pull-number]
   (def result @(http/get 
     (str "https://api.github.com/repos/" org "/" repo "/pulls/" pull-number) options))
@@ -93,8 +100,8 @@
     (remove-label options org repo pull-number label
       (str "MERGE ERROR: " (result :error)))))
 
-(defn squash-merge-pull [options org repo pull-number pull-title label]
-  (println "Attempting to squash merge PR#" pull-number)
+(defn squash-merge-pull [options org repo pull-number pull-title label branch]
+  (println "Attempting to squash merge PR#" pull-number " for branch '" branch "'")
   (def body (generate-string {:commit_title pull-title :merge_method "squash"}))
   (def all-options (merge options {:body body}))
   (def result @(http/put
@@ -103,13 +110,14 @@
   (println "Merge result:" (result :status))
   (if (result :error)
     (remove-label options org repo pull-number label
-      (str "MERGE ERROR: " (result :error)))))
+      (str "MERGE ERROR: " (result :error)))
+    (delete-branch options org repo branch)))
 
 (defn statuses-for-ref [options org repo ref]
   (println "Getting statuses for" ref)
   (def result @(http/get 
     (str "https://api.github.com/repos/" org "/" repo "/commits/" ref "/statuses")
-    options))
+      options))
   (println "Get statuses result:" (result :status))
   result)
 
@@ -129,16 +137,20 @@
         (do (println "Must wait for " required-status " result.") false)
         (not (= "success" state))))))
 
-(defn handle-blocked-state [options org repo label pull state required-status-1 required-status-2]
-; (defn handle-blocked-state [options org repo label pull state required-status-1]
+(defn handle-blocked-state [options org repo label pull state required-status-1 required-status-2 required-status-3 required-status-4 required-status-5]
   (def head-sha ((pull :head) :sha))
   (def statuses (parse-string ((statuses-for-ref options org repo head-sha) :body)))
   (def failed-1 (required-status-failed head-sha statuses required-status-1))
   (def failed-2 (required-status-failed head-sha statuses required-status-2))
+  (def failed-3 (required-status-failed head-sha statuses required-status-3))
+  (def failed-4 (required-status-failed head-sha statuses required-status-4))
+  (def failed-5 (required-status-failed head-sha statuses required-status-5))
   (println (str required-status-1 " failed: " failed-1))
   (println (str required-status-2 " failed: " failed-2))
-  (if (or failed-1 failed-2)
-  ; (if failed-1
+  (println (str required-status-3 " failed: " failed-3))
+  (println (str required-status-4 " failed: " failed-4))
+  (println (str required-status-5 " failed: " failed-5))
+  (if (or failed-1 failed-2 failed-3 failed-4 failed-5)
     (remove-label options org repo pull-number label
       (str "Pull request's 'mergeable_state is' '" state "':"
         " lacks approval or has requested changes"))))
@@ -161,12 +173,12 @@
       (def state (pull :mergeable_state))
       (println "mergeable_state is" state)
 
-      (def merge (fn [] (squash-merge-pull options org repo pull-number (pull :title) label)))
+      (def merge-pr (fn [] (squash-merge-pull options org repo pull-number (pull :title) label ((pull :head) :ref))))
       (def state-map
         {"clean"
-          merge,
+          merge-pr,
         "unstable"
-          merge,
+          merge-pr,
         "dirty"
           (fn [] (remove-label options org repo pull-number label
             (str "Pull request's 'mergeable_state is' '" state "'"))),
@@ -176,7 +188,7 @@
           (fn [] (handle-blocked-state options org repo label pull state
             ; "continuous-integration/jenkins/branch" "ci/circleci"))})
             ; "continuous-integration/jenkins/branch"))})
-            "ci/circleci" "codeclimate"))})
+            "ci/circleci: admin_end_to_end_tests" "ci/circleci: axiom_end_to_end_tests" "ci/circleci: lint_unit_test" "ci/circleci: service_integration_tests" "codeclimate"))})
       (def handle-pull (get state-map state (fn [] ())))
       (handle-pull)
   0)))
