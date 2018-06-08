@@ -16,6 +16,6 @@ During one run it finds the oldest pull request in the repository with the `Auto
 - If that PR still has outstanding github statuses (that is, they are currently still running), nothing is done and the app exits.
 - If that PR has no merge conflicts and all github statuses have passed, the PR is merged and the branch is deleted.
 
-## AWS Tip
-
+## AWS
+This is set up to integrate with AWS.
 It expects a JSON Constant in the events when run through AWS like this: `{ "userToken": "<USER_TOKEN>" }`
