@@ -137,7 +137,7 @@
         (do (println "Must wait for " required-status " result.") false)
         (not (= "success" state))))))
 
-(defn handle-blocked-state [options org repo label pull state required-status-1 required-status-2 required-status-3 required-status-4 required-status-5 required-status-6 required-status-7 required-status-8 required-status-9 required-status-10 required-status-11 required-status-12 required-status-13 required-status-14]
+(defn handle-blocked-state [options org repo label pull state required-status-1 required-status-2 required-status-3 required-status-4 required-status-5 required-status-6 required-status-7 required-status-8 required-status-9 required-status-10 required-status-11 required-status-12 required-status-13]
   (def head-sha ((pull :head) :sha))
   (def statuses (parse-string ((statuses-for-ref options org repo head-sha) :body)))
   (def failed-1 (required-status-failed head-sha statuses required-status-1))
@@ -153,7 +153,6 @@
   (def failed-11 (required-status-failed head-sha statuses required-status-11))
   (def failed-12 (required-status-failed head-sha statuses required-status-12))
   (def failed-13 (required-status-failed head-sha statuses required-status-13))
-  (def failed-14 (required-status-failed head-sha statuses required-status-14))
   (println (str required-status-1 " failed: " failed-1))
   (println (str required-status-2 " failed: " failed-2))
   (println (str required-status-3 " failed: " failed-3))
@@ -167,8 +166,7 @@
   (println (str required-status-11 " failed: " failed-11))
   (println (str required-status-12 " failed: " failed-12))
   (println (str required-status-13 " failed: " failed-13))
-  (println (str required-status-14 " failed: " failed-14))
-  (if (or failed-1 failed-2 failed-3 failed-4 failed-5 failed-6 failed-7 failed-8 failed-9 failed-10 failed-11 failed-12 failed-13 failed-14)
+  (if (or failed-1 failed-2 failed-3 failed-4 failed-5 failed-6 failed-7 failed-8 failed-9 failed-10 failed-11 failed-12 failed-13)
     (remove-label options org repo pull-number label
       (str "Pull request's 'mergeable_state is' '" state "':"
         " lacks approval or has requested changes"))))
@@ -204,7 +202,7 @@
           (fn [] (update-pull-branch options org repo pull-number label ((pull :base) :ref) ((pull :head) :ref))),
         "blocked"
           (fn [] (handle-blocked-state options org repo label pull state
-            "ci/circleci: clone_to_workspace" "ci/circleci: build_initial_admin_docker_image" "ci/circleci: build_initial_web_docker_image" "ci/circleci: build_initial_api_docker_image" "ci/circleci: build_e2e_docker_image" "ci/circleci: test_and_lint_api" "ci/circleci: test_and_lint_ui" "ci/circleci: api_integration_tests" "ci/circleci: end_to_end_test_admin" "ci/circleci: end_to_end_test" "ci/circleci: build_final_api_docker_image" "ci/circleci: build_final_web_docker_image" "ci/circleci: build_final_admin_docker_image" "codeclimate"))})
+            "ci/circleci: clone_to_workspace" "ci/circleci: build_initial_admin_docker_image" "ci/circleci: build_initial_web_docker_image" "ci/circleci: build_initial_api_docker_image" "ci/circleci: build_e2e_docker_image" "ci/circleci: test_and_lint_api" "ci/circleci: test_and_lint_ui" "ci/circleci: api_integration_tests" "ci/circleci: end_to_end_test_admin" "ci/circleci: end_to_end_test" "ci/circleci: build_final_api_docker_image" "ci/circleci: build_final_web_docker_image" "ci/circleci: build_final_admin_docker_image"))})
       (def handle-pull (get state-map state (fn [] ())))
       (handle-pull)
   0)))
