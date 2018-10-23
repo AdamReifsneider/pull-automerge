@@ -202,7 +202,7 @@
           (fn [] (update-pull-branch options org repo pull-number label ((pull :base) :ref) ((pull :head) :ref))),
         "blocked"
           (fn [] (handle-blocked-state options org repo label pull state
-            "ci/circleci: clone_to_workspace" "ci/circleci: build_initial_admin_docker_image" "ci/circleci: build_initial_web_docker_image" "ci/circleci: build_initial_api_docker_image" "ci/circleci: build_e2e_docker_image" "ci/circleci: test_and_lint_api" "ci/circleci: test_and_lint_ui" "ci/circleci: api_integration_tests" "ci/circleci: end_to_end_test_admin" "ci/circleci: end_to_end_test" "ci/circleci: build_final_api_docker_image" "ci/circleci: build_final_web_docker_image" "ci/circleci: build_final_admin_docker_image"))})
+            "ci/circleci: clone_to_workspace" "ci/circleci: admin_build_initial_docker_image" "ci/circleci: web_build_initial_docker_image" "ci/circleci: api_build_initial_docker_image" "ci/circleci: e2e_build_initial_docker_image" "ci/circleci: api_test_and_lint" "ci/circleci: ui_test_and_lint" "ci/circleci: api_integration_tests" "ci/circleci: admin_end_to_end_test" "ci/circleci: end_to_end_test" "ci/circleci: api_build_final_docker_image" "ci/circleci: web_build_final_docker_image" "ci/circleci: admin_build_final_docker_image"))})
       (def handle-pull (get state-map state (fn [] ())))
       (handle-pull)
   0)))
